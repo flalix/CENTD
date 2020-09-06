@@ -1,0 +1,36 @@
+source activate py_env36
+
+python3 -m venv venv
+
+source venv/bin/activate
+
+pip install --upgrade pip
+
+pip install -r requirements.txt
+
+
+#-------- flask db --------------
+
+flask db init
+flask db migrate -m "users table"
+flask db upgrade
+
+flask db downgrate
+flask db history
+flask db current
+
+#---------------------------------
+
+
+flask shell
+u = User(username='flavio',email='flalix@gmail.com')
+u.set_password('fla')
+db.session.add(u)
+db.session.commit()
+u.password_hash
+
+users = User.query.all()
+for u in users:
+    print(u.username, u.last_seen, u.email, u.about_me)
+
+#-------------------------------

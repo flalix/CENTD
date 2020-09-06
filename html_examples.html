@@ -1,0 +1,103 @@
+# https://getbootstrap.com/docs/4.0/components/navs/
+
+{% block header %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+{% endblock %}
+
+
+# Tabs
+
+<ul class="nav nav-tabs">
+  <li class="nav-item">
+    <a class="nav-link active" href="#">Active</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="#">Link</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="#">Link</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link disabled" href="#">Disabled</a>
+  </li>
+</ul>
+
+
+# Vertical
+
+<ul class="nav flex-column">
+  <li class="nav-item">
+    <a class="nav-link active" href="#">Active</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="#">Link</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="#">Link</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link disabled" href="#">Disabled</a>
+  </li>
+</ul>
+
+
+
+# split
+# https://www.w3schools.com/howto/howto_css_split_screen.asp
+
+<div class="split left">
+  <div class="centered">
+    <img src="img_avatar2.png" alt="Avatar woman">
+    <h2>Jane Flex</h2>
+    <p>Some text.</p>
+  </div>
+</div>
+
+<div class="split right">
+  <div class="centered">
+    <img src="img_avatar.png" alt="Avatar man">
+    <h2>John Doe</h2>
+    <p>Some text here too.</p>
+  </div>
+</div>
+
+
+# css
+
+/* Split the screen in half */
+.split {
+  height: 100%;
+  width: 50%;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  overflow-x: hidden;
+  padding-top: 20px;
+}
+
+/* Control the left side */
+.left {
+  left: 0;
+  background-color: #111;
+}
+
+/* Control the right side */
+.right {
+  right: 0;
+  background-color: red;
+}
+
+/* If you want the content centered horizontally and vertically */
+.centered {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+/* Style the image inside the centered container, if needed */
+.centered img {
+  width: 150px;
+  border-radius: 50%;
+}

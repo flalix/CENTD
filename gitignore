@@ -1,0 +1,19 @@
+# Cache
+__pycache__
+
+# OS
+.DS_Store
+
+# IDE
+.vscode
+
+# Settings
+.envrc
+
+logs/
+migrations/
+venv/
+venv
+venv*
+
+*.db
