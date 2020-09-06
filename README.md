@@ -39,22 +39,22 @@ git config --global core.excludesfile ./gitignore
 \# Cache
 __pycache__
 
-\# OS
-.DS_Store
+\# OS  
+.DS_Store  
 
-\# IDE
-.vscode
+\# IDE  
+.vscode  
 
-\# Settings
-.envrc
+\# Settings  
+.envrc  
 
-logs/
-migrations/
-venv/
+logs/  
+migrations/  
+venv/  
 
-\*.db
+\*.db  
 
-
+  
 ### Install
 
 #--- install virtual environment
