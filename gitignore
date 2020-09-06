@@ -13,7 +13,5 @@ __pycache__
 logs/
 migrations/
 venv/
-venv
-venv*
 
 *.db

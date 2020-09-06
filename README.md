@@ -24,8 +24,6 @@ see: https://medium.com/@olegkomarov_77860/how-to-embed-a-dash-app-into-an-exist
 
 ### Github CENTD
 
-git config --global core.excludesfile ./gitignore  
-
 git rm --cached -r migrations/  
 git rm --cached -r logs/  
 git rm --cached -r venv/  
@@ -33,6 +31,29 @@ git rm --cached -r venv/
 git add *  
 git commit -m 'Dash embedded in Flask'  
 git push  
+
+### gitignore
+
+git config --global core.excludesfile ./gitignore  
+
+\# Cache
+__pycache__
+
+\# OS
+.DS_Store
+
+\# IDE
+.vscode
+
+\# Settings
+.envrc
+
+logs/
+migrations/
+venv/
+
+\*.db
+
 
 ### Install
 
