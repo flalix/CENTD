@@ -31,7 +31,7 @@ git rm --cached -r logs/
 git rm --cached -r venv/  
 
 git add *  
-git commit -m 'Dash embeded in Flask'  
+git commit -m 'Dash embedded in Flask'  
 git push  
 
 ### Install
@@ -45,13 +45,13 @@ source activate py_env36
   - Install virtual environment python (3.6 for microblog/centd)
 python -m venv venv
 
-  - Acitvate venv
+  - Activate venv
 source venv/bin/activate
 
    - Confirm python version
 python --version
 
-   - Dont forget to upgrade pip (for this version)
+   - Don't forget to upgrade pip (for this version)
 pip install --upgrade pip
 
    - install from requirement file
