@@ -58,17 +58,20 @@ a:focus {
 }
 
 #sidebar {
-    min-width: 250px;
-    max-width: 250px;
+    width: 250px;
+    position: fixed;
+    top: 0;
+    left: 0;
     height: 100%;
     z-index: 999;
     background: #7386D5;
     color: #fff;
     transition: all 0.3s;
+
 }
 
 #sidebar.active {
-    margin-left: -450px;
+    margin-left: 20px;
 }
 
 #sidebar .sidebar-header {
@@ -163,11 +166,13 @@ a.article:hover {
 @media (max-width: 768px) {
     #sidebar {
         margin-left: -250px;
+        transform: rotateY(100deg);
     }
     #sidebar.active {
         margin-left: 0;
+        transform: none;
     }
     #sidebarCollapse span {
         display: none;
     }
-}}
+}

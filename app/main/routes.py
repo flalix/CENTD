@@ -1,16 +1,17 @@
 from datetime import datetime
-from flask import render_template, flash, redirect, url_for, request, g, \
-    jsonify, current_app
+from flask import render_template, flash, redirect, url_for, request, g, jsonify, current_app
 from flask_login import current_user, login_required
 from flask_babel import _, get_locale
+from flask.helpers import get_root_path
 from guess_language import guess_language
+import app
 from app import db
 from app.main.forms import EditProfileForm, EmptyForm, PostForm , SearchForm, \
                            VirusForm, MutationMapForm, LabResultsForm
 from app.models import User, Post
 from app.translate import translate
 from app.main import bp
-
+import dash
 
 from Bio import SeqIO
 from Bio import Entrez
@@ -177,16 +178,54 @@ def edit_profile():
     elif request.method == 'GET':
         form.username.data = current_user.username
         form.about_me.data = current_user.about_me
-    return render_template('edit_profile.html', title=_('Edit Profile'),
-                           form=form)
+    return render_template('edit_profile.html', title=_('Edit Profile'), form=form)
 
-
-
-@bp.route('/lab_results')
+@bp.route('/lab_results_202008')
 @login_required
-def lab_results():
-    form = LabResultsForm()
-    return render_template('lab_results.html', title=_('SARS-CoV-2'), form=form)
+def lab_results_202008():
+    experiments = ['Chondrocytes (Paola)', "Synoviocites (Isadora)", "Osteoclast (Eduardo)"]
+    return render_template('lab_results_202008.html', title='Screening results', experiments=experiments)
+
+@bp.route('/show_exp_results/<string:experiment>')
+@login_required
+def show_exp_results(experiment):
+    print(">>> experiment", experiment)
+
+    # register_dashapps()
+    print(url_for('main.index'))
+    print(url_for('/dashboard/'))
+
+    return redirect(url_for('/dashboard/') )
+
+    # return render_template('heatmap.html', title='Results for '+experiment, experiment=experiment)
+
+
+# https://medium.com/@olegkomarov_77860/how-to-embed-a-dash-app-into-an-existing-flask-app-ea05d7a2210b
+def register_dashapps():
+    from app.dashPlots.layout    import layout
+    from app.dashPlots.callbacks import register_callbacks
+
+    # Meta tags for viewport responsiveness
+    meta_viewport = {"name": "viewport", "content": "width=device-width, initial-scale=1, shrink-to-fit=no"}
+
+    mydash = dash.Dash(__name__,
+                         server=app,
+                         url_base_pathname='/dashboard/',
+                         assets_folder=get_root_path(__name__) + '/dashboard/assets/',
+                         meta_tags=[meta_viewport])
+
+    with app.app_context():
+        mydash.title = 'Dashapp 1'
+        mydash.layout = layout
+        register_callbacks(mydash)
+
+    _protect_dashviews(mydash)
+
+def _protect_dashviews(dashapp):
+    for view_func in dashapp.server.view_functions:
+        if view_func.startswith(dashapp.config.url_base_pathname):
+            dashapp.server.view_functions[view_func] = login_required(dashapp.server.view_functions[view_func])
+
 
 @bp.route('/virus')
 @login_required
@@ -194,6 +233,9 @@ def virus():
     form = VirusForm()
     return render_template('virus_sarscov2.html', title=_('SARS-CoV-2'), form=form)
 
+@bp.route('/referencias_links')
+def referencias_links():
+    return render_template('index.html', title=_('SARS-CoV-2'), form=form)
 
 @bp.route('/mutation_map')
 def mutation_map():

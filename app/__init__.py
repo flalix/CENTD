@@ -1,6 +1,6 @@
 import logging
 from logging.handlers import SMTPHandler, RotatingFileHandler
-import os, time
+import os, time, shutil
 import dash
 from flask import Flask, request, current_app
 from flask_sqlalchemy import SQLAlchemy
@@ -94,18 +94,18 @@ def create_app(config_class=Config):
     return app
 
 def rename_index_css():
-    want_rename = False
+    want_rename = True
 
     if want_rename:
         _root = 'app/static/css/'
-        filename = [x for x in os.listdir(_root) if 'index' in x][0]
+        filename = "index.css" # [x for x in os.listdir(_root) if 'index.css' in x][0]
         filenew = 'index_%s.css'%(time.ctime()).replace(' ','_').replace(":",'-')
 
         # print(">>> ", _root+filename, _root+filenew)
-        os.rename(_root+filename, _root+filenew)
+        shutil.copy(_root+filename, _root+filenew)
     else:
         filenew = 'index.css'
-        
+
     return filenew
 
 
