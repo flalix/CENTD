@@ -1,7 +1,14 @@
 import logging
 from logging.handlers import SMTPHandler, RotatingFileHandler
 import os, time, shutil
+
 import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+from app.dashPlots.layout    import layout
+from app.dashPlots.callbacks import register_callbacks
+
 from flask import Flask, request, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -39,11 +46,9 @@ def create_app(config_class=Config):
     moment.init_app(app)
     babel.init_app(app)
 
-    register_dashapps(app)
-
     app.file_index_css = rename_index_css()
     app.jinja_env.globals['file_index_css'] = app.file_index_css
-    print(">>> ", app.file_index_css)
+    # print(">>> ", app.file_index_css)
 
     '''app.elasticsearch = Elasticsearch([app.config['ELASTICSEARCH_URL']]) \
         if app.config['ELASTICSEARCH_URL'] else None'''
@@ -91,7 +96,19 @@ def create_app(config_class=Config):
         app.logger.setLevel(logging.INFO)
         app.logger.info('CENTD portal startup')
 
-    return app
+    global mydash
+    mydash = init_dashboard_first(app)
+
+    '''
+    with app.app_context():
+        # Import Dash application
+        # from .plotlydash.dashboard import create_dashboard
+        # dash_app = create_dashboard(app)
+        global dboard
+        dboard = Dashboard(app)
+        return dboard.dash_app'''
+
+    return mydash
 
 def rename_index_css():
     want_rename = True
@@ -114,7 +131,66 @@ def get_locale():
     return request.accept_languages.best_match(current_app.config['LANGUAGES'])
 
 
+class Dashboard(object):
+    def __init__(self, server):
+        self.server   = server
+        self.dash_app = self.create_dashboard(server)
+
+    # https://hackersandslackers.com/plotly-dash-with-flask/
+    def create_dashboard(self, server):
+        """Create a Plotly Dash dashboard."""
+
+        dash_app = dash.Dash(
+            server=server,
+            routes_pathname_prefix='/dashapp/',
+            external_stylesheets=[
+                '/static/css/styles.css',
+            ]
+        )
+
+        # Create Dash Layout
+        dash_app.layout = html.Div(id='dash-container')
+        self.init_callbacks(dash_app)
+
+        return dash_app
+
+    def init_callbacks(self, dash_app):
+        @dash_app.callback(Output('heatmap-id', 'figure'),
+                          [Input('experiment-id', 'value')])
+        def update_graph(vid):
+            print("callback", vid)
+            return vid
+
 # https://medium.com/@olegkomarov_77860/how-to-embed-a-dash-app-into-an-existing-flask-app-ea05d7a2210b
+def init_dashboard_first(app):
+
+    # Meta tags for viewport responsiveness
+    meta_viewport = {"name": "viewport", "content": "width=device-width, initial-scale=1, shrink-to-fit=no"}
+
+    mydash = dash.Dash(__name__,
+                         server=app,
+                         url_base_pathname='/dashboard/',
+                         assets_folder=get_root_path(__name__) + '/dashboard/assets/',
+                         meta_tags=[meta_viewport])
+
+    @mydash.callback(
+        Output('heatmap-id', 'figure'),
+        [Input('experiment-id', 'value')])
+    def update_graph(vid):
+        print(">>> update_graph", vid)
+        return vid
+
+
+    with app.app_context():
+        mydash.title = 'Dashapp 1'
+        mydash.layout = layout
+        register_callbacks(mydash)
+
+    _protect_dashviews(mydash)
+
+    return mydash
+
+
 def register_dashapps(app):
     from app.dashPlots.layout    import layout
     from app.dashPlots.callbacks import register_callbacks
@@ -122,6 +198,7 @@ def register_dashapps(app):
     # Meta tags for viewport responsiveness
     meta_viewport = {"name": "viewport", "content": "width=device-width, initial-scale=1, shrink-to-fit=no"}
 
+    global mydash
     mydash = dash.Dash(__name__,
                          server=app,
                          url_base_pathname='/dashboard/',

@@ -1,9 +1,10 @@
 from app import create_app, db, cli
 from app.models import User, Post
 
-app = create_app()
+global mydash
+mydash = create_app()
+app = mydash.server
 cli.register(app)
-
 
 @app.shell_context_processor
 def make_shell_context():

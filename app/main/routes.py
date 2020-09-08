@@ -1,17 +1,33 @@
+import copy, os, random, sys, re, math
+from os.path import dirname, join
+import numpy as np
+import pandas as pd
+from collections import OrderedDict
+from operator import itemgetter #, attrgetter
 from datetime import datetime
+
 from flask import render_template, flash, redirect, url_for, request, g, jsonify, current_app
 from flask_login import current_user, login_required
 from flask_babel import _, get_locale
 from flask.helpers import get_root_path
 from guess_language import guess_language
-import app
+
+from app.dashPlots.layout    import layout
+from app.dashPlots.callbacks import register_callbacks
+
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+
+#from app import dboard
+
 from app import db
 from app.main.forms import EditProfileForm, EmptyForm, PostForm , SearchForm, \
                            VirusForm, MutationMapForm, LabResultsForm
 from app.models import User, Post
 from app.translate import translate
 from app.main import bp
-import dash
 
 from Bio import SeqIO
 from Bio import Entrez
@@ -19,29 +35,18 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Alphabet import IUPAC
 
-from operator import itemgetter #, attrgetter
-import copy, os, random, sys, re, math
-from os.path import dirname, join
-import numpy as np
-import pandas as pd
-from collections import OrderedDict
+import plotly.graph_objects as go
+import plotly.express as px
+template = 'plotly_white'
 
-from bokeh.io      import curdoc # , output_notebook, show
-from bokeh.layouts import column, layout
-
-from bokeh.core.properties import value
-from bokeh.io       import output_file
-from bokeh.plotting import figure
-from bokeh.models   import ColumnDataSource, LabelSet, HoverTool, Grid, LinearAxis, Plot, VBar, Label
-from bokeh.models   import Div, Select, Slider, TextInput, CustomJS, MultiSelect, Button, AutocompleteInput
-from bokeh.models   import Range1d, FixedTicker, CheckboxGroup
-from bokeh.events   import ButtonClick
+from centd import *
 
 sys.path.insert(1, '../src/')
 from Basic          import *
 from Sequence       import *
 from Shannon        import *
 from covid_seqs_lib import *
+from biobanco_lib   import *
 
 # source must return 2 dirs
 root0        = "../../colaboracoes/covid/"
@@ -90,6 +95,9 @@ base_pickle   = 'msa_sarscov2_202007_%s_protein_%s.pickle'
 xlabel = "AA positions"; moltype='Protein'
 ylabel = 'H (bits)'
 
+experiments = ['Chondrocytes (Paola)', "Synoviocites (Isadora)", "Osteoclast (Eduardo)",
+               'Inflammasome (Nancy and Olga)', 'Macrophages (Douglas and Fernanda)',
+               'Neurons (Michelle)']
 
 @bp.before_app_request
 def before_request():
@@ -183,43 +191,72 @@ def edit_profile():
 @bp.route('/lab_results_202008')
 @login_required
 def lab_results_202008():
-    experiments = ['Chondrocytes (Paola)', "Synoviocites (Isadora)", "Osteoclast (Eduardo)"]
     return render_template('lab_results_202008.html', title='Screening results', experiments=experiments)
 
 @bp.route('/show_exp_results/<string:experiment>')
 @login_required
 def show_exp_results(experiment):
+
     print(">>> experiment", experiment)
+    # layout = prepare_scatter_plot()
 
-    # register_dashapps()
-    print(url_for('main.index'))
-    print(url_for('/dashboard/'))
+    from app import mydash
+    mydash.layout = define_biobanc_experiment(experiment)
 
+    # register_callbacks(mydash)
+    # _protect_dashviews(mydash)
+    # print(url_for('/dashboard/'))
     return redirect(url_for('/dashboard/') )
 
     # return render_template('heatmap.html', title='Results for '+experiment, experiment=experiment)
 
+def callback_update_graph(vid):
 
-# https://medium.com/@olegkomarov_77860/how-to-embed-a-dash-app-into-an-existing-flask-app-ea05d7a2210b
-def register_dashapps():
-    from app.dashPlots.layout    import layout
-    from app.dashPlots.callbacks import register_callbacks
+    print(">>>> callback", vid)
+    try:
+        vid = int(vid)
+    except:
+        vid = 1
 
-    # Meta tags for viewport responsiveness
-    meta_viewport = {"name": "viewport", "content": "width=device-width, initial-scale=1, shrink-to-fit=no"}
+    eperiment = phm.experiment
+    dicexp    = phm.dicexp
+    width     = phm.width
 
-    mydash = dash.Dash(__name__,
-                         server=app,
-                         url_base_pathname='/dashboard/',
-                         assets_folder=get_root_path(__name__) + '/dashboard/assets/',
-                         meta_tags=[meta_viewport])
+    height          = dicexp[vid]['height'];
+    sufix           = dicexp[vid]['author']
+    filename        = dicexp[vid]['filename']
+    experiment_type = dicexp[vid]['experiment_type']
+    the_control     = dicexp[vid]['control']
 
-    with app.app_context():
-        mydash.title = 'Dashapp 1'
-        mydash.layout = layout
-        register_callbacks(mydash)
+    phm.bb = Biobanco(phm.experiment_type, phm.the_control, phm.sufix, filename,
+                      phm.root_data, phm.root_result, phm.exclude_exp,
+                      nround=phm.nround, valpha=phm.valpha, verbose=phm.verbose)
 
-    _protect_dashviews(mydash)
+    dfs, nSamples = phm.bb.create_heamap_table(verbose=verbose)
+
+    if dfs is None:
+        print("Nothing found")
+        return None
+
+    maxi = dfslayout.lfc.max()
+    mini = dfs.lfc.min()
+
+    if not symmetric:
+        if maxi < _maxi: maxi = _maxi
+        if mini > _mini: mini = _mini
+    else:
+        if abs(mini) > maxi:
+            maxi = abs(mini)
+        else:
+            mini = -maxi
+
+    if want_nSamples:
+        title = "LFC Heatmap: venoms x cytokines<br>%s model; cell type: '%s'<br>samples = %s"%(phm.bb.experiment_type, phm.bb.cell_type, nSamples)
+    else:
+        title = "LFC Heatmap: venoms x cytokines<br>%s model; cell type: '%s'"%(phm.bb.experiment_type, phm.bb.cell_type)
+
+    return prepare_heatmap_fig(dfs, title, mini, maxi, width, height, template, fontsize, fontcolor)
+
 
 def _protect_dashviews(dashapp):
     for view_func in dashapp.server.view_functions:
