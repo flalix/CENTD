@@ -208,7 +208,7 @@ def callback_update_graph(vid, symmetric=True, want_nSamples=False):
     except:
         stri = "NOT FOUND - phm"
         print(stri)
-        return stri
+        return None
 
     eperiment = phm.experiment
     dicexp    = phm.dicexp
