@@ -5,7 +5,7 @@ import os, sys, time, shutil
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from app.dashPlots.layout    import layout
 from app.dashPlots.callbacks import register_callbacks
 
@@ -24,6 +24,11 @@ from config import Config
 
 sys.path.insert(1, '../src/')
 from biobanco_lib   import *
+from Sequence import *
+from Shannon import *
+from parallel import *
+from covid_seqs_lib import *
+
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -101,21 +106,8 @@ def create_app(config_class=Config):
         app.logger.info('CENTD portal startup')
 
     global mydash
-    print("app __init__ mydash = ", mydash)
     mydash = init_dashboard_first(app)
-    print("app __init__ mydash = ", mydash)
-
-    '''
-    global mydash
-    mydash = init_dashboard_first(app)
-
-    with app.app_context():
-        # Import Dash application
-        # from .plotlydash.dashboard import create_dashboard
-        # dash_app = create_dashboard(app)
-        global dboard
-        dboard = Dashboard(app)
-        return dboard.dash_app'''
+    # print("app __init__ mydash = ", mydash)
 
     return mydash
 
@@ -124,11 +116,15 @@ def rename_index_css():
 
     if want_rename:
         _root = 'app/static/css/'
-        filename = "index.css" # [x for x in os.listdir(_root) if 'index.css' in x][0]
-        filenew = 'index_%s.css'%(time.ctime()).replace(' ','_').replace(":",'-')
+        filename = "index.css"
 
-        # print(">>> ", _root+filename, _root+filenew)
-        shutil.copy(_root+filename, _root+filenew)
+        todels = [x for x in os.listdir(_root) if 'index_time_' in x]
+        for fdel in todels:
+            os.remove(os.path.join(_root, fdel))
+
+        filenew = 'index_time_%s.css'%(time.ctime()).replace(' ','_').replace(":",'-')
+
+        shutil.copy(os.path.join(_root, filename), os.path.join(_root,filenew) )
     else:
         filenew = 'index.css'
 
@@ -139,36 +135,6 @@ def rename_index_css():
 def get_locale():
     return request.accept_languages.best_match(current_app.config['LANGUAGES'])
 
-
-class Dashboard(object):
-    def __init__(self, server):
-        self.server   = server
-        self.dash_app = self.create_dashboard(server)
-
-    # https://hackersandslackers.com/plotly-dash-with-flask/
-    def create_dashboard(self, server):
-        """Create a Plotly Dash dashboard."""
-
-        dash_app = dash.Dash(
-            server=server,
-            routes_pathname_prefix='/dashapp/',
-            external_stylesheets=[
-                '/static/css/styles.css',
-            ]
-        )
-
-        # Create Dash Layout
-        dash_app.layout = html.Div(id='dash-container')
-        self.init_callbacks(dash_app)
-
-        return dash_app
-
-    def init_callbacks(self, dash_app):
-        @dash_app.callback(Output('heatmap-id', 'figure'),
-                          [Input('experiment-id', 'value')])
-        def update_graph(vid):
-            print("callback", vid)
-            return vid
 
 # https://medium.com/@olegkomarov_77860/how-to-embed-a-dash-app-into-an-existing-flask-app-ea05d7a2210b
 def init_dashboard_first(app):
@@ -185,9 +151,20 @@ def init_dashboard_first(app):
     @mydash.callback(
         Output('heatmap-id', 'figure'),
         [Input('experiment-id', 'value')])
-    def update_graph(vid):
-        print(">>> update_graph", vid)
-        return callback_update_graph(vid)
+    def update_biobanc_results_plot(vid):
+        # print(">>> update_graph", vid)
+        return callback_biobanc_results_plot(vid)
+
+
+    @mydash.callback(
+        Output('entropic-plot-id', 'figure'),
+        [Input('submit', 'n_clicks')],
+        [State('country_picker', 'value'),
+         State('protein_picker', 'value'),
+         State('date_picker', 'start_date'),
+         State('date_picker', 'end_date')])
+    def update_entropic_plot(n_clicks, countryList, protein, start_date, end_date):
+        return callback_update_entropic_plot(n_clicks, countryList, protein, start_date, end_date)
 
     with app.app_context():
         mydash.title = 'Dashapp 1'
@@ -198,9 +175,80 @@ def init_dashboard_first(app):
 
     return mydash
 
-def callback_update_graph(vid, symmetric=True, want_nSamples=False):
+def callback_update_entropic_plot(n_clicks, countryList, protein, start_date, end_date):
 
-    print(">>>> callback_update_graph", vid)
+    try:
+        from covid_seqs_lib import mm
+        print("####", mm)
+    except:
+        stri = "NOT FOUND - import mm"
+        print(stri)
+        return None
+
+    if mm is None:
+        stri = "NOT FOUND - mm"
+        print(stri)
+        return None
+
+    # parallel (lib)
+    matdic = run_multiprocess_countries(countryList, protein=protein,
+                                        start_date=start_date, end_date=end_date,
+                                        prjName=mm.prjName, isProtein=mm.isProtein,
+                                        base_filename=mm.base_filename, root_data=mm.root_data,
+                                        root_protein=mm.root_protein, root_figure=mm.root_protent_figure,
+                                        root_entropy=mm.root_protent_entropy, root_html=mm.root_protent_html,
+                                        root_templates=mm.root_templates, date_mask=mm.date_mask, cpus=mm.cpus)
+
+    traces = []
+    for imat in range(len(matdic)):
+        country  = matdic[imat]['country']
+        df       = matdic[imat]['df']
+        nSamples = matdic[imat]['nSamples']
+        maxVal   = matdic[imat]['maxVal']
+
+        if len(df) == 0:
+            continue
+
+        traces.append(go.Bar(x = df.x, y= df.y, text=df.aas, name=country) )
+
+    if traces == []:
+        fig = {'data': [{'x': [1,2,3], 'y': [3,3,3,]}],
+               'layout':{'title': "Nothing found"}}
+    else:
+        fig = {'data': traces,
+               'layout':{
+                     'title': {
+                         'text': "Polymorphism/Mutations for '%s'"%(protein),
+                         'font': {'family': "Arial",
+                                  'size': 24,
+                                  'color': "black" } },
+                     'xaxis': { 'title': {
+                         'text': "protein residues",
+                         'font': {'family': "Arial",
+                                  'size': 18,
+                                  'color': "black" } } },
+                     'yaxis': { 'title': {
+                         'text': "Entropy - H(bits)",
+                         'font': {'family': "Arial",
+                                  'size': 18,
+                                  'color': "black" } } },
+                     'legend': {
+                         'title': {
+                             'text': "Countries",
+                             'font': {'family': "Arial",
+                                      'size': 18,
+                                      'color': "black" } },
+                        'font': {
+                            'family': "Arial",
+                            'size':   16,
+                            'color': "black"}
+                     },
+                } }
+    return fig
+
+
+def callback_biobanc_results_plot(vid, symmetric=True, want_nSamples=False):
+    # print(">>>> callback_biobanc_results_plot", vid)
     vid = int(vid)
 
     try:
@@ -222,7 +270,7 @@ def callback_update_graph(vid, symmetric=True, want_nSamples=False):
     experiment_type = dicexp[vid]['experiment_type']
     the_control     = dicexp[vid]['control']
 
-    print(">>>> callback_update_graph eperiment:", eperiment, ' - ', name, "\n", filename)
+    print(">>>> callback_biobanc_results_plot eperiment:", eperiment, ' - ', name, "\n", filename)
 
     phm.bb = Biobanco(experiment_type, the_control, sufix, filename,
                       phm.root_data, phm.root_result, phm.exclude_exp,
