@@ -1,7 +1,6 @@
 from app import create_app, db, cli
 from app.models import User, Post
 
-global mydash
 mydash = create_app()
 app = mydash.server
 cli.register(app)

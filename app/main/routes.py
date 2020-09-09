@@ -20,8 +20,6 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 
-#from app import dboard
-
 from app import db
 from app.main.forms import EditProfileForm, EmptyForm, PostForm , SearchForm, \
                            VirusForm, MutationMapForm, LabResultsForm
@@ -39,7 +37,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 template = 'plotly_white'
 
-from centd import *
+phm = None
 
 sys.path.insert(1, '../src/')
 from Basic          import *
@@ -197,20 +195,30 @@ def lab_results_202008():
 @login_required
 def show_exp_results(experiment):
 
+    from app import mydash
     print(">>> experiment", experiment)
     # layout = prepare_scatter_plot()
 
-    from app import mydash
-    mydash.layout = define_biobanc_experiment(experiment)
+    from copy import deepcopy
+    phm, layout = define_biobanc_experiment(experiment)
+    print("creating phm", phm.experiment)
+    print("phm", phm)
+    try:
+        global phm2
+        phm2 = deepcopy(phm)
+        print("phm2", phm2)
+    except:
+        pass
+    mydash.layout = layout
 
-    # register_callbacks(mydash)
-    # _protect_dashviews(mydash)
     # print(url_for('/dashboard/'))
     return redirect(url_for('/dashboard/') )
 
     # return render_template('heatmap.html', title='Results for '+experiment, experiment=experiment)
 
-def callback_update_graph(vid):
+'''@mydash.callback(Output('heatmap-id', 'figure'),
+                [Input('experiment-id', 'value')])'''
+def callback_update_graph(vid, symmetric=True, want_nSamples=False):
 
     print(">>>> callback", vid)
     try:
@@ -238,7 +246,7 @@ def callback_update_graph(vid):
         print("Nothing found")
         return None
 
-    maxi = dfslayout.lfc.max()
+    maxi = dfs.lfc.max()
     mini = dfs.lfc.min()
 
     if not symmetric:

@@ -1,6 +1,6 @@
 import logging
 from logging.handlers import SMTPHandler, RotatingFileHandler
-import os, time, shutil
+import os, sys, time, shutil
 
 import dash
 import dash_core_components as dcc
@@ -22,6 +22,9 @@ from flask_login import login_required
 # from elasticsearch import Elasticsearch
 from config import Config
 
+sys.path.insert(1, '../src/')
+from biobanco_lib   import *
+
 db = SQLAlchemy()
 migrate = Migrate()
 login = LoginManager()
@@ -31,6 +34,7 @@ mail = Mail()
 bootstrap = Bootstrap()
 moment = Moment()
 babel = Babel()
+mydash = None
 
 def create_app(config_class=Config):
     wantDash = True
@@ -97,9 +101,14 @@ def create_app(config_class=Config):
         app.logger.info('CENTD portal startup')
 
     global mydash
+    print("app __init__ mydash = ", mydash)
     mydash = init_dashboard_first(app)
+    print("app __init__ mydash = ", mydash)
 
     '''
+    global mydash
+    mydash = init_dashboard_first(app)
+
     with app.app_context():
         # Import Dash application
         # from .plotlydash.dashboard import create_dashboard
@@ -178,8 +187,7 @@ def init_dashboard_first(app):
         [Input('experiment-id', 'value')])
     def update_graph(vid):
         print(">>> update_graph", vid)
-        return vid
-
+        return callback_update_graph(vid)
 
     with app.app_context():
         mydash.title = 'Dashapp 1'
@@ -189,6 +197,63 @@ def init_dashboard_first(app):
     _protect_dashviews(mydash)
 
     return mydash
+
+def callback_update_graph(vid, symmetric=True, want_nSamples=False):
+
+    print(">>>> callback_update_graph", vid)
+    vid = int(vid)
+
+    try:
+        from biobanco_lib import phm
+    except:
+        stri = "NOT FOUND - phm"
+        print(stri)
+        return stri
+
+    eperiment = phm.experiment
+    dicexp    = phm.dicexp
+    width     = phm.width
+
+    height          = dicexp[vid]['height']
+    name            = dicexp[vid]['name']
+    fontsize        = dicexp[vid]['fontsize']
+    sufix           = dicexp[vid]['author']
+    filename        = dicexp[vid]['filename']
+    experiment_type = dicexp[vid]['experiment_type']
+    the_control     = dicexp[vid]['control']
+
+    print(">>>> callback_update_graph eperiment:", eperiment, ' - ', name, "\n", filename)
+
+    phm.bb = Biobanco(experiment_type, the_control, sufix, filename,
+                      phm.root_data, phm.root_result, phm.exclude_exp,
+                      nround=phm.nround, valpha=phm.valpha, verbose=phm.verbose)
+
+    dfs, nSamples = phm.bb.create_heamap_table(verbose=False)
+
+    if dfs is None:
+        print("Nothing found")
+        return None
+
+    maxi = dfs.lfc.max()
+    mini = dfs.lfc.min()
+
+    if not symmetric:
+        if maxi < _maxi: maxi = _maxi
+        if mini > _mini: mini = _mini
+    else:
+        if abs(mini) > maxi:
+            maxi = abs(mini)
+        else:
+            mini = -maxi
+
+    template = 'plotly_white'; fontcolor='black'
+
+    if want_nSamples:
+        title = "LFC Heatmap: venoms x cytokines<br>%s model; cell type: '%s'<br>samples = %s"%(phm.bb.experiment_type, phm.bb.cell_type, nSamples)
+    else:
+        title = "LFC Heatmap: venoms x cytokines<br>%s model; cell type: '%s'"%(phm.bb.experiment_type, phm.bb.cell_type)
+
+    return prepare_heatmap_fig(dfs, title, mini, maxi, width, height, template, fontsize, fontcolor)
 
 
 def register_dashapps(app):
