@@ -34,3 +34,576 @@ for u in users:
     print(u.username, u.last_seen, u.email, u.about_me)
 
 #-------------------------------
+
+
+#---- preparando o servidor -------------
+
+
+#---locally -----
+root_local=/media/flalix/5c1ba0b4-f897-451c-9068-ac5e57194590/flalix/
+root_local_screening=$root_local'colaboracoes/biobanco/screening'
+echo $root_local_screening
+cd  $root_local_screening
+
+#-------------- biobank screening - moving data to server ------------------
+server='cetics@172.25.1.72:'
+root_centd=$server'/projects/web/CENTD/'
+root_screening=$server'/projects/colaboracoes/biobanco/screening/'
+echo $root_screening
+
+rsync -v *.xls? $root_screening
+
+
+#-------------- sarscov2-gisaid - moving data to server ------------------
+#--- server
+cd /projects/colaboracoes/
+mkdir covid/
+cd covid
+mkdir fasta/
+cd fasta/
+mkdir sarscov2_202007
+cd sarscov2_202007
+mkdir msa_0713_202007
+cd msa_0713_202007
+mkdir trees
+mkdir protein
+cd protein
+mkdir html
+mkdir figure
+mkdir entropy
+
+#--- local
+root_local=/media/flalix/5c1ba0b4-f897-451c-9068-ac5e57194590/flalix/
+root_local_covid=$root_local'colaboracoes/covid/fasta/sarscov2_202007/'
+echo $root_local_covid
+cd  $root_local_covid
+
+root_fasta_covid=$server'/projects/colaboracoes/covid/fasta/sarscov2_202007/'
+echo $root_fasta_covid
+
+cd  $root_local_covid
+rsync -v metadata.tsv $root_fasta_covid
+cd msa_0713_202007/
+rsync -rv . $root_fasta_covid'msa_0713_202007/'
+
+
+
+cd ../protein
+
+rsync -v *.fasta cetics@172.25.1.72:/projects/web/covid_mutations/fasta/sarscov2_202007/protein
+
+cd ../../
+rsync -v metadata.tsv cetics@172.25.1.72:/projects/web/covid_mutations/fasta/sarscov2_202007
+
+
+
+source activate py_env36
+
+cd /projects/web
+git clone https://github.com/miguelgrinberg/microblog
+cd microblog
+git checkout v0.18  # heroku
+git checkout v0.19  # docker!!!
+git checkout v0.20  # javascript
+
+python3 -m venv venv
+source venv/bin/activate
+
+pip install --upgrade pip
+
+pip install -r requirements.txt
+
+#----------- on server ----------------------
+git checkout v0.19
+docker build -t microblog:latest .
+
+docker image list
+# or
+docker images
+
+# REPOSITORY                                TAG                 IMAGE ID            CREATED             SIZE
+# microblog                                 latest              3f0aefbfc4c3        33 seconds ago      169MB
+# ...
+docker run --name microblog -d -p 8000:5000 --rm microblog:latest
+docker ps
+
+# CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                    NAMES
+# 616d3f82e662        microblog:latest    "./boot.sh"         8 seconds ago       Up 7 seconds        0.0.0.0:8000->5000/tcp   microblog
+
+docker stop 616d3f82e662
+# 616d3f82e662
+$ docker ps
+# CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+# empty
+
+docker run --name mysql -d -e MYSQL_RANDOM_ROOT_PASSWORD=yes -e MYSQL_DATABASE=microblog -e MYSQL_USER=microblog -e MYSQL_PASSWORD=admin mysql/mysql-server:5.7
+docker ps
+
+# CONTAINER ID        IMAGE                    COMMAND                  CREATED             STATUS                            PORTS                 NAMES
+# dd53d2acb996        mysql/mysql-server:5.7   "/entrypoint.sh mysq…"   8 seconds ago       Up 7 seconds (health: starting)   3306/tcp, 33060/tcp   mysql
+docker run --name microblog -d -p 8000:5000 --rm -e SECRET_KEY=my-secrete24323 -e MAIL_SERVER=smtp.googlemail.com  -e MAIL_PORT=587  -e MAIL_USERNAME=flalix@gmail.com -e MAIL_USE_TLS=true  -e MAIL_PASSWORD=Flavi3131 --link mysql:dbserver -e DATABASE_URL=mysql+pymysql://microblog:admin@dbserver/microblog  microblog:latest
+
+docker ps
+CONTAINER ID        IMAGE                    COMMAND                  CREATED              STATUS                        PORTS                    NAMES
+0e4126f4712a        microblog:latest         "./boot.sh"              15 seconds ago       Up 14 seconds                 0.0.0.0:8000->5000/tcp   microblog
+dd53d2acb996        mysql/mysql-server:5.7   "/entrypoint.sh mysq…"   About a minute ago   Up About a minute (healthy)   3306/tcp, 33060/tcp      mysql
+(venv) (base) cetics@cetics:/projects/web/microblog$ docker logs 0e4126f4712a
+[2020-08-18 14:13:46,418] INFO in __init__: Microblog startup
+INFO  [alembic.runtime.migration] Context impl MySQLImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> e517276bb1c2, users table
+INFO  [alembic.runtime.migration] Running upgrade e517276bb1c2 -> 780739b227a7, posts table
+INFO  [alembic.runtime.migration] Running upgrade 780739b227a7 -> 37f06a334dbf, new fields in user model
+INFO  [alembic.runtime.migration] Running upgrade 37f06a334dbf -> ae346256b650, followers
+INFO  [alembic.runtime.migration] Running upgrade ae346256b650 -> 2b017edaa91f, add language to posts
+[2020-08-18 14:13:47,336] INFO in __init__: Microblog startup
+compiling catalog app/translations/es/LC_MESSAGES/messages.po to app/translations/es/LC_MESSAGES/messages.mo
+[2020-08-18 14:13:47 +0000] [1] [INFO] Starting gunicorn 20.0.4
+[2020-08-18 14:13:47 +0000] [1] [INFO] Listening at: http://0.0.0.0:5000 (1)
+[2020-08-18 14:13:47 +0000] [1] [INFO] Using worker: sync
+[2020-08-18 14:13:47 +0000] [22] [INFO] Booting worker with pid: 22
+[2020-08-18 14:13:48,442] INFO in __init__: Microblog startup
+
+https://172.25.1.72:8000
+
+
+#--- elastic search
+
+docker run --name elasticsearch -d --rm -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch-oss:6.1.1
+
+
+docker run --name microblog -d -p 8000:5000 --rm -e SECRET_KEY=my-secrete24323 \
+-e MAIL_SERVER=smtp.googlemail.com  -e MAIL_PORT=587  -e MAIL_USERNAME=flalix@gmail.com -e MAIL_USE_TLS=true -e MAIL_PASSWORD=Flavi3131 \
+--link mysql:dbserver -e DATABASE_URL=mysql+pymysql://microblog:admin@dbserver/microblog \
+--link elasticsearch:elasticsearch -e ELASTICSEARCH_URL=http://elasticsearch:9200 \
+microblog:latest
+
+docker logs microblog
+[2020-08-18 14:36:19,043] INFO in __init__: Microblog startup
+INFO  [alembic.runtime.migration] Context impl MySQLImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+[2020-08-18 14:36:19,793] INFO in __init__: Microblog startup
+compiling catalog app/translations/es/LC_MESSAGES/messages.po to app/translations/es/LC_MESSAGES/messages.mo
+[2020-08-18 14:36:20 +0000] [1] [INFO] Starting gunicorn 20.0.4
+[2020-08-18 14:36:20 +0000] [1] [INFO] Listening at: http://0.0.0.0:5000 (1)
+[2020-08-18 14:36:20 +0000] [1] [INFO] Using worker: sync
+[2020-08-18 14:36:20 +0000] [22] [INFO] Booting worker with pid: 22
+[2020-08-18 14:36:20,900] INFO in __init__: Microblog startup
+
+
+
+#----------- on local machine ----------------
+
+#--- 2 add requirements--------
+#--- unicorn webservice
+pip install gunicorn
+#--- drive mysql
+pip install pymysql
+pip install elasticsearch
+
+create .env
+SECRETE_KEY=dadsfaskdfidfysdfkx
+MAIL_SERVER=localhost
+MAIL_PORT=25
+DATABASE_URL=mysql+pymysql://microblog:microblog@localhost:3306/microblog
+MS_TRANSLATOR_KEY=aaaaaa
+ELASTICSEARCH_URL=locahost
+
+#--- FLASK_APP profile - to restart each login
+echo "export FLASK_APP=microblog.py" >> ~./profile
+export FLASK_APP=microblog.py
+flask translate compile
+
+#-- setup MySql database
+mysql -u root -p   # prompt to enter the pathway
+> create database microblog character set to utf-8;
+> create user 'microblog'@'localhost' indentied by 'microblog';
+> grand all privileges on microblog.* to 'microblog'@'localhost';
+> flush privileges;
+> quit;
+
+$ flask db upgrade
+
+gunicorn -b localhost:8000 -w 12 microblog:app
+
+#-- supervisor, allway be running
+sudo ne /etc/supervisor/conf.d/micorblog.conf
+[program:microblog]
+command:source ativate py_env36
+command=/projects/web/microblog/venv/bin/gunicorn/ -b localhost:8000 -w 12 microblog:app
+diretory=/projects/web/microblog/
+user=ubuntu
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+<save, quit>
+
+sudo supervisorctl reload
+sudo supervisorctl status
+< see if it is running >
+
+#--- nginx - double layer - 80, 443 -------------
+#-- ssl certificate  - I dont have a domain name
+#-- web browser needs ssl certificate
+#-- free ssl certificate
+
+mkdir certs
+openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -keyout certs/key.pem -out certs/cert.pem
+
+coutry
+state
+localy: SP
+organization
+...
+email
+
+
+ls -ls certs/
+cert.pem
+key pem
+
+#-- now nginx is ruuning ....
+
+
+sudo rm /etc/nginx/sites-enabled/default
+sudo ne /etc/nginx/sites-enabled/microblog
+
+copy from: /media/flalix/5c1ba0b4-f897-451c-9068-ac5e57194590/flalix/tools/miguel/microblog-web/lesson 17_installing_server/deployment/nginx
+
+80 - not encripted port
+443 - encripted
+
+server {
+    # listen on port 80 (http)
+    listen 80;
+    server_name _;
+    location / {
+        # redirect any requests to the same URL but on https
+        return 301 https://$host$request_uri;
+    }
+}
+server {
+    # listen on port 443 (https)
+    listen 443 ssl;
+    server_name _;
+
+    # location of the self-signed SSL certificate
+    ssl_certificate /microblog/certs/cert.pem;
+    ssl_certificate_key /projects/web/microblog/certs/key.pem;
+
+    # write access and error logs to /var/log
+    access_log /var/log/microblog_access.log;
+    error_log /var/log/microblog_error.log;
+
+    location / {
+        # forward application requests to the gunicorn server
+        proxy_pass http://localhost:8000;
+        proxy_redirect off;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /static {
+        # handle static files directly, without forwarding to the application
+        alias /projects/web/microblog/app/static;
+        expires 365d;
+    }
+}
+
+sudo service nginx reload
+
+https://172.25.1.72
+
+
+#--- updating the application-------------
+git pull ...
+
+sudo supervisorctl stop microblog
+flask db upgrade
+flask translate compile
+sudo supervisorctl start microblog
+
+#-- Raspberry Pi hosting -- deploiment platform ----------
+# raspian ... debian
+
+
+
+#---------------------------------
+export FLASK_APP=microblog.py
+
+export FLASK_DEBUG=0
+
+export MAIL_SERVER=localhost
+export MAIL_PORT=8025
+
+echo $MAIL_SERVER  $MAIL_PORT
+echo $FLASK_DEBUG
+echo $FLASK_APP
+echo done
+#----------------------------------
+
+
+# https://www.udemy.com/course/flask-mega-tutorial/learn/lecture/10583372#overview
+# aula 129
+
+#- ufw open the ports - access from outside world
+sudo  ufw allow ssh
+sudo ufw allow http
+# https - encripted
+sudo ufw allow 443/tcp
+# enable ufw
+sudo ufw --force enable
+
+sudo ufw allow 3306/tcp
+sudo service ufw restart
+
+sudo service mysql restart
+
+
+sudo apt-get -y update
+source activate py37
+
+sudo apt-get -y install postfix supervisor nginx git
+# sudo apt-get -y install mysql-server
+# sudo apt-get -y install mysql-server
+
+conda list -n py37 | grep mysql
+
+conda install -y -c anaconda mysql-connector-python
+cnda install -y -c anaconda mysql-connector-python
+
+#--- miguel
+#-- see also: https://blog.miguelgrinberg.com/post/the-flask-mega-tutorial-part-xiii-i18n-and-l10n
+
+conda install -y -c anaconda gunicorn
+conda install -y -c anaconda pymysql
+conda install -y -c anaconda flask
+
+conda install -y -c conda-forge python-dotenv
+conda install -y -c conda-forge/label/gcc7 python-dotenv
+conda install -y -c conda-forge/label/cf201901 python-dotenv
+conda install -y -c conda-forge/label/cf202003 python-dotenv
+# pip install python-dotenv
+
+conda install -y -c conda-forge flask-sqlalchemy
+conda install -y -c conda-forge/label/gcc7 flask-sqlalchemy
+conda install -y -c conda-forge/label/cf201901 flask-sqlalchemy
+conda install -y -c conda-forge/label/cf202003 flask-sqlalchemy
+
+conda install -y -c conda-forge flask-migrate
+conda install -y -c conda-forge/label/cf201901 flask-migrate
+conda install -y -c conda-forge/label/cf202003 flask-migrate
+
+conda install -y -c anaconda flask-login
+
+conda install -y -c conda-forge flask-babel
+conda install -y -c conda-forge/label/gcc7 flask-babel
+conda install -y -c conda-forge/label/cf201901 flask-babel
+conda install -y -c conda-forge/label/cf202003 flask-babel
+
+conda install -y -c conda-forge flask-mail
+conda install -y -c conda-forge/label/gcc7 flask-mail
+conda install -y -c conda-forge/label/cf201901 flask-mail
+conda install -y -c conda-forge/label/cf202003 flask-mail
+
+conda install -y -c conda-forge flask-bootstrap
+conda install -y -c conda-forge/label/gcc7 flask-bootstrap
+conda install -y -c conda-forge/label/cf201901 flask-bootstrap
+conda install -y -c conda-forge/label/cf202003 flask-bootstrap
+
+conda install -y -c conda-forge flask-moment
+conda install -y -c conda-forge/label/gcc7 flask-moment
+conda install -y -c conda-forge/label/cf201901 flask-moment
+conda install -y -c conda-forge/label/cf202003 flask-moment
+
+# Simple integration of Flask and WTForms
+conda install -y -c anaconda flask-wtf
+
+conda install -y -c conda-forge elasticsearch
+conda install -y -c conda-forge/label/gcc7 elasticsearch
+conda install -y -c conda-forge/label/cf201901 elasticsearch
+conda install -y -c conda-forge/label/cf202003 elasticsearch
+
+pip install config
+
+# JSON Web Token library for Python 3
+# no! conda install -y -c carta jwt
+
+conda install -y -c conda-forge pyjwt
+conda install -y -c conda-forge/label/gcc7 pyjwt
+conda install -y -c conda-forge/label/cf201901 pyjwt
+conda install -y -c conda-forge/label/cf202003 pyjwt
+
+conda install -y -c conda-forge email_validator
+conda install -y -c conda-forge/label/gcc7 email_validator
+conda install -y -c conda-forge/label/cf201901 email_validator
+conda install -y -c conda-forge/label/cf202003 email_validator
+
+#-- no! - conda install -y -c auto guess-language
+#-- no py27 - conda install -y  -c hargup/label/pypi guess-language
+# sudo apt-get update
+# sudo apt-get install python-guess-language
+
+pip install guess-language
+
+# no - conda install -y -c magonser blocks
+pip install block
+
+ne .env
+SECRET_KEY=centd_aaaa_bbbsdfasdf
+MAIL_SERVER=localhost
+MAIL_PORT=25
+DATABASE_URL=mysql+pymysql://microblog:cetics@locahlst:3306/cetics
+MS_TRANSLATOR_KEY=aaaaaa
+
+FLASK_APP=microblog.py
+
+echo "FLASK_APP=microblog.py" >> ~/.profile
+cetics@127:/projects/web/miguel/microblog$ cat ~/.profile
+
+
+flask translate compile  ??
+
+flask --help
+export FLASK_ENV=development
+# only for development, not for production --> use gunicorn
+flask run
+
+# https://gunicorn.org/
+# Python WSGI HTTP Server for UNIX
+gunicorn -b localhost:8000 -w 10 microblog:app
+
+
+
+
+#---- prepare environment ---------------
+
+sudo chown cetics web
+cd /projects/web/
+sudo chown cetics temperature/
+sudo chown cetics covid_mutations/
+sudo chown cetics src
+
+cd covid_mutations
+mkdir fasta
+cd fasta
+mkdir sarscov2_202007
+cd  sarscov2_202007
+
+mkdir cut
+mkdir protein
+cd /media/flalix/5c1ba0b4-f897-451c-9068-ac5e57194590/flalix/colaboracoes/covid/fasta/sarscov2_202007/msa_0713_202007/cut
+
+rsync -v *.fasta cetics@172.25.1.72:/projects/web/covid_mutations/fasta/sarscov2_202007/cut
+
+cd ../protein
+
+rsync -v *.fasta cetics@172.25.1.72:/projects/web/covid_mutations/fasta/sarscov2_202007/protein
+
+cd ../../
+rsync -v metadata.tsv cetics@172.25.1.72:/projects/web/covid_mutations/fasta/sarscov2_202007
+
+
+#--- local machine
+
+cd /media/flalix/5c1ba0b4-f897-451c-9068-ac5e57194590/flalix/python/src
+rsync -v * cetics@172.25.1.72:/projects/web/covid_mutations
+
+chmod +x *.py
+
+cd ../genetics_drug_vaccine/covid/
+rsync -v sarscov2_3countries.py cetics@172.25.1.72:/projects/web/src/
+
+
+#----------------------------------------
+#-- at the Server
+conda update --prefix /projects/Tools/anaconda3 anaconda
+
+source activate py37
+
+import numpy, pandas
+import scipy, statsmodels
+import os, sys, csv, collections, re, io, json, gzip, wget
+import copy, random, datetime
+import requests, HTML
+import matplotlib, seaborn
+
+sys.path.insert(1, '../../src/')
+from Basic import *
+from Sequence import *
+from Shannon import *
+from covid_seqs_lib import *
+
+wget, HTML
+
+
+#----------------------------------------
+cd /usr/bin/
+
+sudo snx -s 143.107.75.58 -u flavio.lichtenstein
+@But$2020
+
+# ssh cetics@172.25.1.72
+# password: centd@#18
+terminator -p remotehost
+
+cd /projects/Tools/temperature_control
+cd /projects/web/covid_mutations
+
+config seguranca
+https://myaccount.google.com/lesssecureapps
+só ativar
+
+cd /projects/CENTD/covid/python/
+#--- paul
+cd /projects/flavio
+
+find /home/username/ -name "*.err"
+
+sudo dmidecode | less
+
+
+centd@#18
+
+
+sudo snx -s 143.107.75.58 -u lichtenstein
+Butantan@2020
+
+ssh cetics@172.25.1.72
+
+filezillasftp://172.25.1.72centd@#18
+
+
+
+
+[profiles]
+[[default]]
+ scroll_on_output = False
+ exit_action = restart
+ scrollback_infinite = True
+[[remotehost]]
+ use_custom_command = True
+ exit_action = restart
+ custom_command = ssh cetics@172.25.1.72
+
+
+
+
+voando baixo ... com terminato + vpn
+entrei na vpn IBu
+depois de entrar não use ssh para ir no servidor, use terminator pois pode abrir 2 janelas no console (split)
+
+tem um config proprio
+https://unix.stackexchange.com/questions/48699/new-terminator-window-on-remote-server
+
+aí vc pode entrar como se fosse ssh
+ao inves de ssh
+terminator -p remotehost
+
+dá um split de tela
+
+abaixo rodando CLUSTAL-Omega
+o Muscle não consegue alinhar muitas sequencias
+abr

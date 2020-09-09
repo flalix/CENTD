@@ -54,8 +54,53 @@ venv/
 
 \*.db  
 
-  
-### Install
+### Moving data to server
+
+#### biobank screening - moving data to server
+
+server='cetics@172.25.1.72:'  
+root_centd=$server'/projects/web/CENTD/'  
+root_screening=$server'/projects/colaboracoes/biobanco/screening/'  
+echo $root_screening  
+
+rsync -v \*.xls? $root_screening  
+
+#### sarscov2-gisaid - moving data to server
+
+  - server
+cd /projects/colaboracoes/  
+mkdir covid/  
+cd covid  
+mkdir fasta/  
+cd fasta/  
+mkdir sarscov2_202007  
+cd sarscov2_202007  
+mkdir msa_0713_202007  
+cd msa_0713_202007  
+mkdir trees  
+mkdir protein  
+cd protein  
+mkdir html  
+mkdir figure  
+mkdir entropy  
+
+  - local
+root_local=/media/flalix/5c1ba0b4-f897-451c-9068-ac5e57194590/flalix/  
+root_local_covid=$root_local'colaboracoes/covid/fasta/sarscov2_202007/'  
+echo $root_local_covid  
+cd  $root_local_covid  
+
+root_fasta_covid=$server'/projects/colaboracoes/covid/fasta/sarscov2_202007/'  
+echo $root_fasta_covid  
+
+cd  $root_local_covid  
+rsync -v metadata.tsv $root_fasta_covid  
+cd msa_0713_202007/  
+rsync -rv . $root_fasta_covid'msa_0713_202007/'  
+
+
+
+### Install Locally
 
 #--- install virtual environment
 sudo apt-get install python3-venv
