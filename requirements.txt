@@ -4,6 +4,7 @@ matplotlib
 ipython
 pandas
 pandas-datareader
+xlrd
 seaborn
 plotly
 dash
@@ -26,7 +27,7 @@ Flask-Babel
 Flask-Bootstrap
 Flask-Login
 Flask-Mail
-Flask-Migrate
+Flask-Migratepip install email-validator
 Flask-Moment
 Flask-SQLAlchemy
 Flask-WTF
