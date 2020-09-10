@@ -20,3 +20,5 @@ class Config(object):
     MS_TRANSLATOR_KEY = os.environ.get('MS_TRANSLATOR_KEY')
     ELASTICSEARCH_URL = os.environ.get('ELASTICSEARCH_URL')
     POSTS_PER_PAGE = 25
+    MYSQL_USER='root'@'172.17.0.3'
+    MYSQL_ROOT_PASSWORD=admin

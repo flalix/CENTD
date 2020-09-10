@@ -34,7 +34,7 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Alphabet import IUPAC
 
 import plotly.graph_objects as go
-import plotly.express as px
+import plotly.express as pxydash.layout = layout
 template = 'plotly_white'
 
 #-- plot heatmap instance
@@ -205,6 +205,7 @@ def show_exp_results(experiment):
         global phm
         phm, layout = define_biobanc_experiment(experiment)
     except:
+        print(">>> NOT got layout ", experiment)
         pass
     mydash.layout = layout
 

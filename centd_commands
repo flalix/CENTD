@@ -100,8 +100,8 @@ rsync -v metadata.tsv cetics@172.25.1.72:/projects/web/covid_mutations/fasta/sar
 source activate py_env36
 
 cd /projects/web
-git clone https://github.com/miguelgrinberg/microblog
-cd microblog
+git clone https://github.com/miguelgrinberg/centd
+cd centd
 git checkout v0.18  # heroku
 git checkout v0.19  # docker!!!
 git checkout v0.20  # javascript
@@ -114,40 +114,37 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 #----------- on server ----------------------
-git checkout v0.19
-docker build -t microblog:latest .
-
+git checkout CENTD
+docker build -t centd:latest .
 docker image list
-# or
-docker images
 
-# REPOSITORY                                TAG                 IMAGE ID            CREATED             SIZE
-# microblog                                 latest              3f0aefbfc4c3        33 seconds ago      169MB
-# ...
-docker run --name microblog -d -p 8000:5000 --rm microblog:latest
+docker run --name centd -d -p 8000:5000 --rm -e SECRET_KEY=centdSecret#345 \
+-e MAIL_SERVER=smtp.googlemail.com  -e MAIL_PORT=587  -e MAIL_USERNAME=flalix@gmail.com -e MAIL_USE_TLS=true -e MAIL_PASSWORD=Flavi3131 \
+--link mysql:dbserver -e DATABASE_URL=mysql+pymysql://centd:admin@dbserver/centd \
+--link elasticsearch:elasticsearch -e ELASTICSEARCH_URL=http://elasticsearch:9200 \
+-v $(pwd)"../src:/src" \
+-v $(pwd)"../../colaboracoes/covid/fasta/sarscov2_202007:/colaboracoes/covid/fasta/sarscov2_202007" \
+-v $(pwd)"../../colaboracoes/biobanco/screening:/colaboracoes/biobanco/screening" \
+centd:latest
+
+
+id=xxxxx
+docker stop $id
 docker ps
 
-# CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                    NAMES
-# 616d3f82e662        microblog:latest    "./boot.sh"         8 seconds ago       Up 7 seconds        0.0.0.0:8000->5000/tcp   microblog
-
-docker stop 616d3f82e662
-# 616d3f82e662
-$ docker ps
-# CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
-# empty
-
-docker run --name mysql -d -e MYSQL_RANDOM_ROOT_PASSWORD=yes -e MYSQL_DATABASE=microblog -e MYSQL_USER=microblog -e MYSQL_PASSWORD=admin mysql/mysql-server:5.7
+docker run --name mysql -d -e MYSQL_RANDOM_ROOT_PASSWORD=yes -e MYSQL_DATABASE=centd -e MYSQL_USER=centd -e MYSQL_PASSWORD=admin mysql/mysql-server:5.7
 docker ps
 
 # CONTAINER ID        IMAGE                    COMMAND                  CREATED             STATUS                            PORTS                 NAMES
 # dd53d2acb996        mysql/mysql-server:5.7   "/entrypoint.sh mysq…"   8 seconds ago       Up 7 seconds (health: starting)   3306/tcp, 33060/tcp   mysql
-docker run --name microblog -d -p 8000:5000 --rm -e SECRET_KEY=my-secrete24323 -e MAIL_SERVER=smtp.googlemail.com  -e MAIL_PORT=587  -e MAIL_USERNAME=flalix@gmail.com -e MAIL_USE_TLS=true  -e MAIL_PASSWORD=Flavi3131 --link mysql:dbserver -e DATABASE_URL=mysql+pymysql://microblog:admin@dbserver/microblog  microblog:latest
+docker run --name centd -d -p 8000:5000 --rm -e SECRET_KEY=my-secrete24323 -e MAIL_SERVER=smtp.googlemail.com  -e MAIL_PORT=587  -e MAIL_USERNAME=flalix@gmail.com -e MAIL_USE_TLS=true  -e MAIL_PASSWORD=Flavi3131 --link mysql:dbserver -e DATABASE_URL=mysql+pymysql://centd:admin@dbserver/centd  centd:latest
 
 docker ps
 CONTAINER ID        IMAGE                    COMMAND                  CREATED              STATUS                        PORTS                    NAMES
-0e4126f4712a        microblog:latest         "./boot.sh"              15 seconds ago       Up 14 seconds                 0.0.0.0:8000->5000/tcp   microblog
+0e4126f4712a        centd:latest         "./boot.sh"              15 seconds ago       Up 14 seconds                 0.0.0.0:8000->5000/tcp   centd
 dd53d2acb996        mysql/mysql-server:5.7   "/entrypoint.sh mysq…"   About a minute ago   Up About a minute (healthy)   3306/tcp, 33060/tcp      mysql
-(venv) (base) cetics@cetics:/projects/web/microblog$ docker logs 0e4126f4712a
+
+(venv) (base) cetics@cetics:/projects/web/centd$ docker logs 0e4126f4712a
 [2020-08-18 14:13:46,418] INFO in __init__: Microblog startup
 INFO  [alembic.runtime.migration] Context impl MySQLImpl.
 INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
@@ -172,13 +169,13 @@ https://172.25.1.72:8000
 docker run --name elasticsearch -d --rm -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch-oss:6.1.1
 
 
-docker run --name microblog -d -p 8000:5000 --rm -e SECRET_KEY=my-secrete24323 \
+docker run --name centd -d -p 8000:5000 --rm -e SECRET_KEY=my-secrete24323 \
 -e MAIL_SERVER=smtp.googlemail.com  -e MAIL_PORT=587  -e MAIL_USERNAME=flalix@gmail.com -e MAIL_USE_TLS=true -e MAIL_PASSWORD=Flavi3131 \
---link mysql:dbserver -e DATABASE_URL=mysql+pymysql://microblog:admin@dbserver/microblog \
+--link mysql:dbserver -e DATABASE_URL=mysql+pymysql://centd:admin@dbserver/centd \
 --link elasticsearch:elasticsearch -e ELASTICSEARCH_URL=http://elasticsearch:9200 \
-microblog:latest
+centd:latest
 
-docker logs microblog
+docker logs centd
 [2020-08-18 14:36:19,043] INFO in __init__: Microblog startup
 INFO  [alembic.runtime.migration] Context impl MySQLImpl.
 INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
@@ -205,33 +202,33 @@ create .env
 SECRETE_KEY=dadsfaskdfidfysdfkx
 MAIL_SERVER=localhost
 MAIL_PORT=25
-DATABASE_URL=mysql+pymysql://microblog:microblog@localhost:3306/microblog
+DATABASE_URL=mysql+pymysql://centd:centd@localhost:3306/centd
 MS_TRANSLATOR_KEY=aaaaaa
 ELASTICSEARCH_URL=locahost
 
 #--- FLASK_APP profile - to restart each login
-echo "export FLASK_APP=microblog.py" >> ~./profile
-export FLASK_APP=microblog.py
+echo "export FLASK_APP=centd.py" >> ~./profile
+export FLASK_APP=centd.py
 flask translate compile
 
 #-- setup MySql database
 mysql -u root -p   # prompt to enter the pathway
-> create database microblog character set to utf-8;
-> create user 'microblog'@'localhost' indentied by 'microblog';
-> grand all privileges on microblog.* to 'microblog'@'localhost';
+> create database centd character set to utf-8;
+> create user 'centd'@'localhost' indentied by 'centd';
+> grand all privileges on centd.* to 'centd'@'localhost';
 > flush privileges;
 > quit;
 
 $ flask db upgrade
 
-gunicorn -b localhost:8000 -w 12 microblog:app
+gunicorn -b localhost:8000 -w 12 centd:app
 
 #-- supervisor, allway be running
 sudo ne /etc/supervisor/conf.d/micorblog.conf
-[program:microblog]
+[program:centd]
 command:source ativate py_env36
-command=/projects/web/microblog/venv/bin/gunicorn/ -b localhost:8000 -w 12 microblog:app
-diretory=/projects/web/microblog/
+command=/projects/web/centd/venv/bin/gunicorn/ -b localhost:8000 -w 12 centd:app
+diretory=/projects/web/centd/
 user=ubuntu
 autostart=true
 autorestart=true
@@ -267,9 +264,9 @@ key pem
 
 
 sudo rm /etc/nginx/sites-enabled/default
-sudo ne /etc/nginx/sites-enabled/microblog
+sudo ne /etc/nginx/sites-enabled/centd
 
-copy from: /media/flalix/5c1ba0b4-f897-451c-9068-ac5e57194590/flalix/tools/miguel/microblog-web/lesson 17_installing_server/deployment/nginx
+copy from: /media/flalix/5c1ba0b4-f897-451c-9068-ac5e57194590/flalix/tools/miguel/centd-web/lesson 17_installing_server/deployment/nginx
 
 80 - not encripted port
 443 - encripted
@@ -289,8 +286,8 @@ server {
     server_name _;
 
     # location of the self-signed SSL certificate
-    ssl_certificate /microblog/certs/cert.pem;
-    ssl_certificate_key /projects/web/microblog/certs/key.pem;
+    ssl_certificate /centd/certs/cert.pem;
+    ssl_certificate_key /projects/web/centd/certs/key.pem;
 
     # write access and error logs to /var/log
     access_log /var/log/microblog_access.log;
@@ -307,7 +304,7 @@ server {
 
     location /static {
         # handle static files directly, without forwarding to the application
-        alias /projects/web/microblog/app/static;
+        alias /projects/web/centd/app/static;
         expires 365d;
     }
 }
@@ -320,10 +317,10 @@ https://172.25.1.72
 #--- updating the application-------------
 git pull ...
 
-sudo supervisorctl stop microblog
+sudo supervisorctl stop centd
 flask db upgrade
 flask translate compile
-sudo supervisorctl start microblog
+sudo supervisorctl start centd
 
 #-- Raspberry Pi hosting -- deploiment platform ----------
 # raspian ... debian
@@ -331,7 +328,7 @@ sudo supervisorctl start microblog
 
 
 #---------------------------------
-export FLASK_APP=microblog.py
+export FLASK_APP=centd.py
 
 export FLASK_DEBUG=0
 
@@ -455,13 +452,13 @@ ne .env
 SECRET_KEY=centd_aaaa_bbbsdfasdf
 MAIL_SERVER=localhost
 MAIL_PORT=25
-DATABASE_URL=mysql+pymysql://microblog:cetics@locahlst:3306/cetics
+DATABASE_URL=mysql+pymysql://centd:cetics@locahlst:3306/cetics
 MS_TRANSLATOR_KEY=aaaaaa
 
-FLASK_APP=microblog.py
+FLASK_APP=centd.py
 
-echo "FLASK_APP=microblog.py" >> ~/.profile
-cetics@127:/projects/web/miguel/microblog$ cat ~/.profile
+echo "FLASK_APP=centd.py" >> ~/.profile
+cetics@127:/projects/web/miguel/centd$ cat ~/.profile
 
 
 flask translate compile  ??
@@ -473,7 +470,7 @@ flask run
 
 # https://gunicorn.org/
 # Python WSGI HTTP Server for UNIX
-gunicorn -b localhost:8000 -w 10 microblog:app
+gunicorn -b localhost:8000 -w 10 centd:app
 
 
 
